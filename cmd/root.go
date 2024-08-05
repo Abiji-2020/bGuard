@@ -29,9 +29,23 @@ func NewRootCommand() *cobra.Command {
 		Long:   "bGuard is a simple CLI tool for managing your DNS by providing custom DNS resolver and ad-blocker to restrict the junk and unwanted traffic",
 		PreRun: initConfigPreRun,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return newServerCommand().RunE(cmd, args)
+			return newServeCommand().RunE(cmd, args)
 		}, SilenceUsage: true,
 	}
+	c.PersistentFlags().StringVarP(&configPath, "config", "c", defaultConfigPath, "Path to the configuration file")
+	c.PersistentFlags().StringVar(&apiHost, "host", defaultHost, "Host to bind the API server")
+	c.PersistentFlags().Uint16Var(&apiPort, "port", defaultPort, "Port to bind the API server")
+
+	c.AddCommand(newRefreshCommand(),
+		newQueryCommand(),
+		newVersionCommand(),
+		newServeCommand(),
+		newBlockingCommand(),
+		newListsCommand(),
+		newHealthcheckCommand(),
+		newCacheCommand(),
+		NewValidateCommand())
+	return c
 
 }
 
