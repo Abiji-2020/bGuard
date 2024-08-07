@@ -2,9 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"net"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
+	"github.com/Abiji-2020/bGuard/config"
+	"github.com/Abiji-2020/bGuard/log"
 	"github.com/spf13/cobra"
 )
 
@@ -49,6 +54,10 @@ func NewRootCommand() *cobra.Command {
 
 }
 
+func apiURL() string {
+	return fmt.Sprintf("http://%s%s", net.JoinHostPort(apiHost, strconv.Itoa(int(apiPort))), "/api")
+}
+
 func Execute() {
 	if err := NewRootCommand().Execute(); err != nil {
 		os.Exit(1)
@@ -89,4 +98,19 @@ func initConfig() error {
 	}
 	return nil
 
+}
+
+type codeWithStatus interface {
+	StatusCode() int
+	Status() string
+}
+
+func printOkOError(resp codeWithStatus, body string) error {
+	if resp.StatusCode() == http.StatusOK {
+		log.Log().Info("OK")
+	} else {
+		return fmt.Errorf("Response NOK, %s %s", resp.Status(), body)
+
+	}
+	return nil
 }
