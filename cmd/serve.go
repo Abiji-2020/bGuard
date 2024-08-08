@@ -7,6 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/Abiji-2020/bGuard/config"
+	"github.com/Abiji-2020/bGuard/evt"
+	"github.com/Abiji-2020/bGuard/log"
+	"github.com/Abiji-2020/bGuard/server"
+	"github.com/Abiji-2020/bGuard/util"
 	"github.com/spf13/cobra"
 )
 
@@ -69,4 +74,23 @@ func startServer(_ *cobra.Command, _ []string) error {
 	evt.Bus().Publish(evt.ApplicationStarted, util.Version, util.BuildTime)
 	<-done
 	return terminationErr
+}
+
+func printBanner() {
+	log.Log().Info("_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/")
+	log.Log().Info("_/                                                              _/")
+	log.Log().Info("_/                                                              _/")
+	log.Log().Info("_/       _/                    _/_/_/                           _/")
+	log.Log().Info("_/      _/_/_/              _/                                  _/")
+	log.Log().Info("_/     _/    _/           _/    _/_/                            _/")
+	log.Log().Info("_/    _/    _/            _/    _/                              _/")
+	log.Log().Info("_/   _/_/_/                _/_/_/                               _/")
+	log.Log().Info("_/                                                              _/")
+	log.Log().Info("_/                                                              _/")
+	log.Log().Info("_/                                                              _/")
+	log.Log().Info("_/_______________________________________________________________/")
+	log.Log().Infof("_/  Version: %-18s Build time: %-18s  _/", util.Version, util.BuildTime)
+	log.Log().Info("_/                                                              _/")
+	log.Log().Info("_/_______________________________________________________________/")
+
 }
