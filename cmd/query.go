@@ -1,0 +1,64 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	"github.com/Abiji-2020/bGuard/api"
+	"github.com/Abiji-2020/bGuard/log"
+	"github.com/miekg/dns"
+	"github.com/spf13/cobra"
+)
+
+func newQueryCommand() *cobra.Command {
+	c := &cobra.Command{
+		Use:               "query <domain>",
+		Args:              cobra.ExactArgs(1),
+		Short:             "Query the DNS server",
+		RunE:              query,
+		PersistentPreRunE: initConfigPreRun,
+	}
+
+	c.Flags().StringP("type", "t", "A", "Query type (A, AAAA, ...)")
+
+	return c
+
+}
+
+func query(cmd *cobra.Command, args []string) error {
+	typeFlag, _ := cmd.Flags().GetString("type")
+	qType := dns.StringToType[typeFlag]
+
+	if qType == dns.TypeNone {
+		return fmt.Errorf("invalid query type: %s", typeFlag)
+	}
+
+	client, err := api.NewClientWithResponses(apiURL())
+	if err != nil {
+		return fmt.Errorf("can't create Client: %w", err)
+	}
+
+	req := api.DNSRequest{
+		Query: args[0],
+		Type:  typeFlag,
+	}
+
+	resp, err := client.QueryWithResponse(context.Background(), req)
+
+	if err != nil {
+		return fmt.Errorf("cant execute %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("response NOK: %s %s", resp.Status(), string(resp.Body))
+	}
+
+	log.Log().Infof("Query Result for '%s' (%s) : \n ", req.Query, req.Type)
+	log.Log().Infof("\treason:   %20s", resp.JSON200.Reason)
+	log.Log().Infof("\tresponse: %20s", resp.JSON200.Response)
+	log.Log().Infof("\tresponse type: %20s", resp.JSON200.ResponseType)
+	log.Log().Infof("\treturn code : %20s ", resp.JSON200.ReturnCode)
+
+	return nil
+}
