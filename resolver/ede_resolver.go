@@ -3,9 +3,9 @@ package resolver
 import (
 	"context"
 
-	"github.com/0xERR0R/blocky/config"
-	"github.com/0xERR0R/blocky/model"
-	"github.com/0xERR0R/blocky/util"
+	"github.com/Abiji-2020/bGuard/config"
+	"github.com/Abiji-2020/bGuard/model"
+	"github.com/Abiji-2020/bGuard/util"
 	"github.com/miekg/dns"
 )
 
