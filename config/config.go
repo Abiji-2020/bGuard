@@ -1,3 +1,4 @@
+//go:generate go run github.com/abice/go-enum -f=$GOFILE --marshal --names --values
 package config
 
 import (
@@ -12,18 +13,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/creasty/defaults"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 
 	. "github.com/Abiji-2020/bGuard/config/migration"
 	"github.com/Abiji-2020/bGuard/log"
 	"github.com/Abiji-2020/bGuard/util"
+	"github.com/creasty/defaults"
+	"gopkg.in/yaml.v2"
 )
 
 const (
-	updPort   = 53
+	udpPort   = 53
 	tlsPort   = 853
 	httpsPort = 443
 
@@ -31,12 +32,27 @@ const (
 )
 
 type Configurable interface {
-	isEnabled() bool
+	// IsEnabled returns true when the receiver is configured.
+	IsEnabled() bool
+
+	// LogConfig logs the receiver's configuration.
+	//
+	// The behavior of this method is undefined when `IsEnabled` returns false.
 	LogConfig(*logrus.Entry)
 }
 
+// NetProtocol resolver protocol ENUM(
+// tcp+udp // TCP and UDP protocols
+// tcp-tls // TCP-TLS protocol
+// https // HTTPS protocol
+// )
 type NetProtocol uint16
 
+// IPVersion represents IP protocol version(s). ENUM(
+// dual // IPv4 and IPv6
+// v4   // IPv4 only
+// v6   // IPv6 only
+// )
 type IPVersion uint8
 
 func (ipv IPVersion) Net() string {
@@ -55,37 +71,57 @@ func (ipv IPVersion) Net() string {
 func (ipv IPVersion) QTypes() []dns.Type {
 	switch ipv {
 	case IPVersionDual:
-		return []dns.Type{dns.TypeA, dns.TypeAAAA}
+		return []dns.Type{dns.Type(dns.TypeA), dns.Type(dns.TypeAAAA)}
 	case IPVersionV4:
-		return []dns.Type{dns.TypeA}
+		return []dns.Type{dns.Type(dns.TypeA)}
 	case IPVersionV6:
-		return []dns.Type{dns.TypeAAAA}
+		return []dns.Type{dns.Type(dns.TypeAAAA)}
 	}
 
 	panic(fmt.Errorf("bad value: %s", ipv))
 }
 
-type TLSVersion int
+// TLSVersion represents a TLS protocol version. ENUM(
+// 1.0 = 769
+// 1.1
+// 1.2
+// 1.3
+// )
+type TLSVersion int // values MUST match `tls.VersionTLS*`
 
 func (v *TLSVersion) validate(logger *logrus.Entry) {
-
-	minAllowed := tls.config{MinVersion: tls.VersionTLS12}.MinVersion
+	// So we get a linting error if it is considered insecure in the future
+	minAllowed := tls.Config{MinVersion: tls.VersionTLS12}.MinVersion
 
 	if *v < TLSVersion(minAllowed) {
-		def := mustDefault[Config]().minTLSServeVer
+		def := mustDefault[Config]().MinTLSServeVer
 
-		logger.Warnf("TLS version %s is not supported, using %s instead", v, def)
+		logger.Warnf("TLS version %s is insecure, using %s instead", v, def)
 		*v = def
 	}
 }
 
+// QueryLogType type of the query log ENUM(
+// console // use logger as fallback
+// none // no logging
+// mysql // MySQL or MariaDB database
+// postgresql // PostgreSQL database
+// csv // CSV file per day
+// csv-client // CSV file per day and client
+// timescale // Timescale database
+// )
 type QueryLogType int16
 
+// InitStrategy startup strategy ENUM(
+// blocking // synchronously download blocking lists on startup
+// failOnError // synchronously download blocking lists on startup and shutdown on error
+// fast // asyncronously download blocking lists on startup
+// )
 type InitStrategy uint16
 
 func (s InitStrategy) Do(ctx context.Context, init func(context.Context) error, logErr func(error)) error {
 	init = recoverToError(init, func(panicVal any) error {
-		return fmt.Errorf("panic during initalization: %v", panicVal)
+		return fmt.Errorf("panic during initialization: %v", panicVal)
 	})
 
 	if s == InitStrategyFast {
@@ -95,6 +131,7 @@ func (s InitStrategy) Do(ctx context.Context, init func(context.Context) error, 
 				logErr(err)
 			}
 		}()
+
 		return nil
 	}
 
@@ -105,23 +142,30 @@ func (s InitStrategy) Do(ctx context.Context, init func(context.Context) error, 
 		if s == InitStrategyFailOnError {
 			return err
 		}
-
 	}
+
 	return nil
 }
 
+// QueryLogField data field to be logged
+// ENUM(clientIP,clientName,responseReason,responseAnswer,question,duration)
 type QueryLogField string
 
+// UpstreamStrategy data field to be logged
+// ENUM(parallel_best,strict,random)
 type UpstreamStrategy uint8
 
+//nolint:gochecknoglobals
 var netDefaultPort = map[NetProtocol]uint16{
-	NetProtocolTcpUdp: updPort,
+	NetProtocolTcpUdp: udpPort,
 	NetProtocolTcpTls: tlsPort,
 	NetProtocolHttps:  httpsPort,
 }
 
+// ListenConfig is a list of address(es) to listen on
 type ListenConfig []string
 
+// UnmarshalText implements `encoding.TextUnmarshaler`.
 func (l *ListenConfig) UnmarshalText(data []byte) error {
 	addresses := string(data)
 
@@ -130,25 +174,29 @@ func (l *ListenConfig) UnmarshalText(data []byte) error {
 	return nil
 }
 
+// UnmarshalYAML creates BootstrapDNS from YAML
 func (b *BootstrapDNS) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var single BootStrappedUpstream
-
+	var single BootstrappedUpstream
 	if err := unmarshal(&single); err == nil {
 		*b = BootstrapDNS{single}
 
 		return nil
 	}
 
-	var c BootstrapDNS
+	// bootstrapDNS is used to avoid infinite recursion:
+	// if we used BootstrapDNS, unmarshal would just call us again.
+	var c bootstrapDNS
 	if err := unmarshal(&c); err != nil {
 		return err
 	}
 
 	*b = BootstrapDNS(c)
+
 	return nil
 }
 
-func (b *BootStrappedUpstream) UnmarshalYAML(unmarshal func(interface{}) error) error {
+// UnmarshalYAML creates BootstrappedUpstream from YAML
+func (b *BootstrappedUpstream) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err := unmarshal(&b.Upstream); err == nil {
 		return nil
 	}
@@ -165,6 +213,7 @@ func (b *BootStrappedUpstream) UnmarshalYAML(unmarshal func(interface{}) error) 
 	return nil
 }
 
+// Config main configuration
 type Config struct {
 	Upstreams        Upstreams           `yaml:"upstreams"`
 	ConnectIPVersion IPVersion           `yaml:"connectIPVersion"`
@@ -174,6 +223,7 @@ type Config struct {
 	ClientLookup     ClientLookup        `yaml:"clientLookup"`
 	Caching          Caching             `yaml:"caching"`
 	QueryLog         QueryLog            `yaml:"queryLog"`
+	Prometheus       Metrics             `yaml:"prometheus"`
 	Redis            Redis               `yaml:"redis"`
 	Log              log.Config          `yaml:"log"`
 	Ports            Ports               `yaml:"ports"`
@@ -207,33 +257,36 @@ type Config struct {
 }
 
 type Ports struct {
-	DNS ListenConfig `yaml:"dns" default: "53"`
-
+	DNS   ListenConfig `yaml:"dns" default:"53"`
 	HTTP  ListenConfig `yaml:"http"`
 	HTTPS ListenConfig `yaml:"https"`
 	TLS   ListenConfig `yaml:"tls"`
 }
 
 func (c *Ports) LogConfig(logger *logrus.Entry) {
-	logger.Infof("DNS port: %s", c.DNS)
-	logger.Infof("HTTP port: %s", c.HTTP)
-	logger.Infof("HTTPS port: %s", c.HTTPS)
-	logger.Infof("TLS port: %s", c.TLS)
+	logger.Infof("DNS   = %s", c.DNS)
+	logger.Infof("TLS   = %s", c.TLS)
+	logger.Infof("HTTP  = %s", c.HTTP)
+	logger.Infof("HTTPS = %s", c.HTTPS)
 }
 
+// split in two types to avoid infinite recursion. See `BootstrapDNS.UnmarshalYAML`.
 type (
 	BootstrapDNS bootstrapDNS
 	bootstrapDNS []BootstrappedUpstream
 )
 
-func (b *BootstrapDNS) isEnabled() bool {
+func (b *BootstrapDNS) IsEnabled() bool {
 	return len(*b) != 0
 }
 
 func (b *BootstrapDNS) LogConfig(*logrus.Entry) {
-	panic("Not implemented")
+	// This should not be called, at least for now:
+	// The Boostrap resolver is not in the chain and thus its config is not logged
+	panic("not implemented")
 }
 
+// split in two types to avoid infinite recursion. See `BootstrappedUpstream.UnmarshalYAML`.
 type (
 	BootstrappedUpstream bootstrappedUpstream
 	bootstrappedUpstream struct {
@@ -248,15 +301,17 @@ type (
 )
 
 type toEnable struct {
-	Enable bool `yaml:"enable" default: false`
+	Enable bool `yaml:"enable" default:"false"`
 }
 
-func (e *toEnable) isEnabled() bool {
-	return e.Enable
+// IsEnabled implements `config.Configurable`.
+func (c *toEnable) IsEnabled() bool {
+	return c.Enable
 }
 
+// LogConfig implements `config.Configurable`.
 func (c *toEnable) LogConfig(logger *logrus.Entry) {
-	logger.Infof("Enabled")
+	logger.Info("enabled")
 }
 
 type Init struct {
@@ -264,7 +319,7 @@ type Init struct {
 }
 
 func (c *Init) LogConfig(logger *logrus.Entry) {
-	logger.Debugf("Strategy =  %s", c.Strategy)
+	logger.Debugf("strategy = %s", c.Strategy)
 }
 
 type SourceLoading struct {
@@ -272,29 +327,29 @@ type SourceLoading struct {
 
 	Concurrency        uint       `yaml:"concurrency" default:"4"`
 	MaxErrorsPerSource int        `yaml:"maxErrorsPerSource" default:"5"`
-	RefreshPeriod      Duration   `yaml:"refreshPeriod" default:"3h"`
+	RefreshPeriod      Duration   `yaml:"refreshPeriod" default:"4h"`
 	Downloads          Downloader `yaml:"downloads"`
 }
 
 func (c *SourceLoading) LogConfig(logger *logrus.Entry) {
 	c.Init.LogConfig(logger)
-	logger.Infof("Concurrency = %d", c.Concurrency)
-	logger.Debugf("Max errors per source = %d", c.MaxErrorsPerSource)
+	logger.Infof("concurrency = %d", c.Concurrency)
+	logger.Debugf("maxErrorsPerSource = %d", c.MaxErrorsPerSource)
 
 	if c.RefreshPeriod.IsAboveZero() {
-		logger.Infof("Refresh  = every %s", c.RefreshPeriod)
+		logger.Infof("refresh = every %s", c.RefreshPeriod)
 	} else {
-		logger.Infof("Refresh = disabled")
+		logger.Debug("refresh = disabled")
 	}
 
-	logger.Info("Downloads:")
-	log.WithIndent(logger, " ", c.Downloads.LogConfig)
-
+	logger.Info("downloads:")
+	log.WithIndent(logger, "  ", c.Downloads.LogConfig)
 }
 
-func (c *SourceLoading) StartPeriodicRefresh(ctx context.Context, refresh func(context.Context) error, logErr func(error)) error {
+func (c *SourceLoading) StartPeriodicRefresh(
+	ctx context.Context, refresh func(context.Context) error, logErr func(error),
+) error {
 	err := c.Strategy.Do(ctx, refresh, logErr)
-
 	if err != nil {
 		return err
 	}
@@ -310,11 +365,10 @@ func (c *SourceLoading) periodically(
 	ctx context.Context, refresh func(context.Context) error, logErr func(error),
 ) {
 	refresh = recoverToError(refresh, func(panicVal any) error {
-		return fmt.Errorf("panic during periodic refresh: %v", panicVal)
+		return fmt.Errorf("panic during refresh: %v", panicVal)
 	})
 
 	ticker := time.NewTicker(c.RefreshPeriod.ToDuration())
-
 	defer ticker.Stop()
 
 	for {
@@ -324,15 +378,15 @@ func (c *SourceLoading) periodically(
 			if err != nil {
 				logErr(err)
 			}
+
 		case <-ctx.Done():
 			return
-
 		}
 	}
 }
 
 func recoverToError(do func(context.Context) error, onPanic func(any) error) func(context.Context) error {
-	return func(ctx context.Context) error {
+	return func(ctx context.Context) (rerr error) {
 		defer func() {
 			if val := recover(); val != nil {
 				rerr = onPanic(val)
@@ -349,14 +403,15 @@ type Downloader struct {
 	Cooldown Duration `yaml:"cooldown" default:"500ms"`
 }
 
-func (d *Downloader) LogConfig(logger *logrus.Entry) {
-	logger.Infof("Timeout = %s", d.Timeout)
-	logger.Infof("Attempts = %d", d.Attempts)
-	logger.Infof("Cooldown = %s", d.Cooldown)
+func (c *Downloader) LogConfig(logger *logrus.Entry) {
+	logger.Infof("timeout = %s", c.Timeout)
+	logger.Infof("attempts = %d", c.Attempts)
+	logger.Debugf("cooldown = %s", c.Cooldown)
 }
 
 func WithDefaults[T any]() (T, error) {
 	var cfg T
+
 	if err := defaults.Set(&cfg); err != nil {
 		return cfg, fmt.Errorf("can't apply %T defaults: %w", cfg, err)
 	}
@@ -373,6 +428,7 @@ func mustDefault[T any]() T {
 	return cfg
 }
 
+// LoadConfig creates new config from YAML file or a directory containing YAML files
 func LoadConfig(path string, mandatory bool) (rCfg *Config, rerr error) {
 	logger := logrus.NewEntry(log.Log())
 
@@ -381,21 +437,25 @@ func LoadConfig(path string, mandatory bool) (rCfg *Config, rerr error) {
 
 func loadConfig(logger *logrus.Entry, path string, mandatory bool) (rCfg *Config, rerr error) {
 	cfg, err := WithDefaults[Config]()
-
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() {
 		if rerr == nil {
 			util.LogPrivacy.Store(rCfg.Log.Privacy)
 		}
 	}()
+
 	fs, err := os.Stat(path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, os.ErrNotExist) && !mandatory {
+			// config file does not exist
+			// return config with default values
 			return &cfg, nil
 		}
-		return nil, fmt.Errorf("can't read config file: %w", err)
+
+		return nil, fmt.Errorf("can't read config file(s): %w", err)
 	}
 
 	var (
@@ -405,12 +465,14 @@ func loadConfig(logger *logrus.Entry, path string, mandatory bool) (rCfg *Config
 
 	if fs.IsDir() {
 		prettyPath = filepath.Join(path, "*")
+
 		data, err = readFromDir(path, data)
 		if err != nil {
 			return nil, fmt.Errorf("can't read config files: %w", err)
 		}
 	} else {
 		prettyPath = path
+
 		data, err = os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("can't read config file: %w", err)
@@ -420,50 +482,59 @@ func loadConfig(logger *logrus.Entry, path string, mandatory bool) (rCfg *Config
 	cfg.CustomDNS.Zone.configPath = prettyPath
 
 	err = unmarshalConfig(logger, data, &cfg)
-
 	if err != nil {
 		return nil, err
 	}
-	return &cfg, nil
 
+	return &cfg, nil
 }
 
 func readFromDir(path string, data []byte) ([]byte, error) {
-
 	err := filepath.WalkDir(path, func(filePath string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+
 		if path == filePath {
 			return nil
 		}
+
+		// Ignore non YAML files
 		if !strings.HasSuffix(filePath, ".yml") && !strings.HasSuffix(filePath, ".yaml") {
 			return nil
 		}
+
 		isRegular, err := isRegularFile(filePath)
 		if err != nil {
 			return err
 		}
+
+		// Ignore non regular files (directories, sockets, etc.)
 		if !isRegular {
 			return nil
 		}
+
 		fileData, err := os.ReadFile(filePath)
 		if err != nil {
 			return err
 		}
 
 		data = append(data, []byte("\n")...)
-		data = append(data, filedata...)
+		data = append(data, fileData...)
+
 		return nil
 	})
+
 	return data, err
 }
 
+// isRegularFile follows symlinks, so the result is `true` for a symlink to a regular file.
 func isRegularFile(path string) (bool, error) {
 	stat, err := os.Stat(path)
 	if err != nil {
 		return false, err
 	}
+
 	isRegular := stat.Mode()&os.ModeType == 0
 
 	return isRegular, nil
@@ -472,19 +543,20 @@ func isRegularFile(path string) (bool, error) {
 func unmarshalConfig(logger *logrus.Entry, data []byte, cfg *Config) error {
 	err := yaml.UnmarshalStrict(data, cfg)
 	if err != nil {
-		return fmt.Errorf("Wrong file structure %w", err)
+		return fmt.Errorf("wrong file structure: %w", err)
 	}
-	useDepredOpts := cfg.migrate(logger)
 
-	if useDepredOpts {
-		logger.Error("Configuration uses deprecated options, see warning logs for details")
+	usesDepredOpts := cfg.migrate(logger)
+	if usesDepredOpts {
+		logger.Error("configuration uses deprecated options, see warning logs for details")
 	}
 
 	cfg.validate(logger)
+
 	return nil
 }
 
-func (c *Config) migrate(logger *logrus.Entry) bool {
+func (cfg *Config) migrate(logger *logrus.Entry) bool {
 	usesDepredOpts := Migrate(logger, "", cfg.Deprecated, map[string]Migrator{
 		"upstream":        Move(To("upstreams.groups", &cfg.Upstreams)),
 		"upstreamTimeout": Move(To("upstreams.timeout", &cfg.Upstreams)),
@@ -522,6 +594,7 @@ func (cfg *Config) validate(logger *logrus.Entry) {
 	cfg.Upstreams.validate(logger)
 }
 
+// ConvertPort converts string representation into a valid port (0 - 65535)
 func ConvertPort(in string) (uint16, error) {
 	const (
 		base    = 10
@@ -529,9 +602,9 @@ func ConvertPort(in string) (uint16, error) {
 	)
 
 	p, err := strconv.ParseUint(strings.TrimSpace(in), base, bitSize)
-
 	if err != nil {
 		return 0, err
 	}
+
 	return uint16(p), nil
 }

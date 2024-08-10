@@ -11,19 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newQueryCommand() *cobra.Command {
+// NewQueryCommand creates new command instance
+func NewQueryCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:               "query <domain>",
 		Args:              cobra.ExactArgs(1),
-		Short:             "Query the DNS server",
+		Short:             "performs DNS query",
 		RunE:              query,
 		PersistentPreRunE: initConfigPreRun,
 	}
 
-	c.Flags().StringP("type", "t", "A", "Query type (A, AAAA, ...)")
+	c.Flags().StringP("type", "t", "A", "query type (A, AAAA, ...)")
 
 	return c
-
 }
 
 func query(cmd *cobra.Command, args []string) error {
@@ -31,34 +31,33 @@ func query(cmd *cobra.Command, args []string) error {
 	qType := dns.StringToType[typeFlag]
 
 	if qType == dns.TypeNone {
-		return fmt.Errorf("invalid query type: %s", typeFlag)
+		return fmt.Errorf("unknown query type '%s'", typeFlag)
 	}
 
 	client, err := api.NewClientWithResponses(apiURL())
 	if err != nil {
-		return fmt.Errorf("can't create Client: %w", err)
+		return fmt.Errorf("can't create client: %w", err)
 	}
 
-	req := api.DNSRequest{
+	req := api.ApiQueryRequest{
 		Query: args[0],
 		Type:  typeFlag,
 	}
 
 	resp, err := client.QueryWithResponse(context.Background(), req)
-
 	if err != nil {
-		return fmt.Errorf("cant execute %w", err)
+		return fmt.Errorf("can't execute %w", err)
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("response NOK: %s %s", resp.Status(), string(resp.Body))
+		return fmt.Errorf("response NOK, %s %s", resp.Status(), string(resp.Body))
 	}
 
-	log.Log().Infof("Query Result for '%s' (%s) : \n ", req.Query, req.Type)
-	log.Log().Infof("\treason:   %20s", resp.JSON200.Reason)
-	log.Log().Infof("\tresponse: %20s", resp.JSON200.Response)
+	log.Log().Infof("Query result for '%s' (%s):", req.Query, req.Type)
+	log.Log().Infof("\treason:        %20s", resp.JSON200.Reason)
 	log.Log().Infof("\tresponse type: %20s", resp.JSON200.ResponseType)
-	log.Log().Infof("\treturn code : %20s ", resp.JSON200.ReturnCode)
+	log.Log().Infof("\tresponse:      %20s", resp.JSON200.Response)
+	log.Log().Infof("\treturn code:   %20s", resp.JSON200.ReturnCode)
 
 	return nil
 }

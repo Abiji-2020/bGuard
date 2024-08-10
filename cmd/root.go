@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals
 var (
 	configPath string
 	apiHost    string
@@ -20,61 +21,61 @@ var (
 )
 
 const (
-	defaultPort        = 4000
-	defaultHost        = "localhost"
-	defaultConfigPath  = "./config.yaml"
-	configFileEnVar    = "BGUARD_CONFIG_FILE"
-	configFileEnVarOld = "BGUARD_CONFIG"
+	defaultPort         = 4000
+	defaultHost         = "localhost"
+	defaultConfigPath   = "./config.yml"
+	configFileEnvVar    = "bGuard_CONFIG_FILE"
+	configFileEnvVarOld = "CONFIG_FILE"
 )
 
+// NewRootCommand creates a new root cli command instance
 func NewRootCommand() *cobra.Command {
 	c := &cobra.Command{
-		Use:    "bGuard",
-		Short:  "bGuard is a simple CLI tool for managing your DNS",
-		Long:   "bGuard is a simple CLI tool for managing your DNS by providing custom DNS resolver and ad-blocker to restrict the junk and unwanted traffic",
-		PreRun: initConfigPreRun,
+		Use:   "bGuard",
+		Short: "bGuard is a DNS proxy ",
+		Long: `A fast and configurable DNS Proxy
+and ad-blocker for local network.
+
+Complete documentation is available at https://github.com/Abiji-2020/bGuard`,
+		PreRunE: initConfigPreRun,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return newServeCommand().RunE(cmd, args)
-		}, SilenceUsage: true,
+		},
+		SilenceUsage: true,
 	}
-	c.PersistentFlags().StringVarP(&configPath, "config", "c", defaultConfigPath, "Path to the configuration file")
-	c.PersistentFlags().StringVar(&apiHost, "host", defaultHost, "Host to bind the API server")
-	c.PersistentFlags().Uint16Var(&apiPort, "port", defaultPort, "Port to bind the API server")
+
+	c.PersistentFlags().StringVarP(&configPath, "config", "c", defaultConfigPath, "path to config file or folder")
+	c.PersistentFlags().StringVar(&apiHost, "apiHost", defaultHost, "host of bGuard (API). Default overridden by config and CLI.") //nolint:lll
+	c.PersistentFlags().Uint16Var(&apiPort, "apiPort", defaultPort, "port of bGuard (API). Default overridden by config and CLI.") //nolint:lll
 
 	c.AddCommand(newRefreshCommand(),
-		newQueryCommand(),
-		newVersionCommand(),
+		NewQueryCommand(),
+		NewVersionCommand(),
 		newServeCommand(),
 		newBlockingCommand(),
-		newListsCommand(),
-		newHealthcheckCommand(),
+		NewListsCommand(),
+		NewHealthcheckCommand(),
 		newCacheCommand(),
 		NewValidateCommand())
-	return c
 
+	return c
 }
 
 func apiURL() string {
 	return fmt.Sprintf("http://%s%s", net.JoinHostPort(apiHost, strconv.Itoa(int(apiPort))), "/api")
 }
 
-func Execute() {
-	if err := NewRootCommand().Execute(); err != nil {
-		os.Exit(1)
-	}
-}
-
-func initConfigPreRun(cmd *cobra.Command, args []string) {
+func initConfigPreRun(cmd *cobra.Command, args []string) error {
 	return initConfig()
 }
 
 func initConfig() error {
 	if configPath == defaultConfigPath {
-		val, present := os.LookupEnv(configFileEnVar)
+		val, present := os.LookupEnv(configFileEnvVar)
 		if present {
 			configPath = val
 		} else {
-			val, present = os.LookupEnv(configFileEnVarOld)
+			val, present = os.LookupEnv(configFileEnvVarOld)
 			if present {
 				configPath = val
 			}
@@ -83,21 +84,34 @@ func initConfig() error {
 
 	cfg, err := config.LoadConfig(configPath, false)
 	if err != nil {
-		return fmt.Errorf("Unable to load configuration file %s: %w", configPath, err)
+		return fmt.Errorf("unable to load configuration file '%s': %w", configPath, err)
 	}
-	log.confiure(&cfg.Log)
+
+	log.Configure(&cfg.Log)
+
 	if len(cfg.Ports.HTTP) != 0 {
-		split := strings.Split(cfg.Ports.HTTP, ":")
+		split := strings.Split(cfg.Ports.HTTP[0], ":")
+
 		lastIdx := len(split) - 1
+
 		apiHost = strings.Join(split[:lastIdx], ":")
+
 		port, err := config.ConvertPort(split[lastIdx])
 		if err != nil {
-			return fmt.Errorf("Unable to parse port number %s: %w", split[lastIdx], err)
+			return fmt.Errorf("can't convert port '%s' to number (1 - 65535): %w", split[lastIdx], err)
 		}
-		apiPort = apiPort
-	}
-	return nil
 
+		apiPort = port
+	}
+
+	return nil
+}
+
+// Execute starts the command
+func Execute() {
+	if err := NewRootCommand().Execute(); err != nil {
+		os.Exit(1)
+	}
 }
 
 type codeWithStatus interface {
@@ -105,12 +119,12 @@ type codeWithStatus interface {
 	Status() string
 }
 
-func printOkOError(resp codeWithStatus, body string) error {
+func printOkOrError(resp codeWithStatus, body string) error {
 	if resp.StatusCode() == http.StatusOK {
 		log.Log().Info("OK")
 	} else {
-		return fmt.Errorf("Response NOK, %s %s", resp.Status(), body)
-
+		return fmt.Errorf("response NOK, %s %s", resp.Status(), body)
 	}
+
 	return nil
 }

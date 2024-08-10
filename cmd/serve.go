@@ -12,12 +12,14 @@ import (
 	"github.com/Abiji-2020/bGuard/log"
 	"github.com/Abiji-2020/bGuard/server"
 	"github.com/Abiji-2020/bGuard/util"
+
 	"github.com/spf13/cobra"
 )
 
+//nolint:gochecknoglobals
 var (
 	done              = make(chan bool, 1)
-	isConfigMandatory bool
+	isConfigMandatory = true
 	signals           = make(chan os.Signal, 1)
 )
 
@@ -25,7 +27,7 @@ func newServeCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:               "serve",
 		Args:              cobra.NoArgs,
-		Short:             "Start the bGuard server",
+		Short:             "start bGuard DNS server (default command)",
 		RunE:              startServer,
 		PersistentPreRunE: initConfigPreRun,
 		SilenceUsage:      true,
@@ -34,21 +36,22 @@ func newServeCommand() *cobra.Command {
 
 func startServer(_ *cobra.Command, _ []string) error {
 	printBanner()
+
 	cfg, err := config.LoadConfig(configPath, isConfigMandatory)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return fmt.Errorf("unable to load configuration: %w", err)
 	}
 
-	log.configure(&cfg.Log)
+	log.Configure(&cfg.Log)
 
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
 
-	srv, err := server.NewServer(ctx, &cfg)
+	srv, err := server.NewServer(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create server: %w", err)
+		return fmt.Errorf("can't start server: %w", err)
 	}
 
 	const errChanSize = 10
@@ -61,11 +64,12 @@ func startServer(_ *cobra.Command, _ []string) error {
 	go func() {
 		select {
 		case <-signals:
-			log.Log().Infof("Terminating.......")
-			util.LogOnError(ctx, "failed to stop server", srv.Stop(ctx))
+			log.Log().Infof("Terminating...")
+			util.LogOnError(ctx, "can't stop server: ", srv.Stop(ctx))
 			done <- true
+
 		case err := <-errChan:
-			log.Log().Error("server start Failed", err)
+			log.Log().Error("server start failed: ", err)
 			terminationErr = err
 			done <- true
 		}
@@ -73,8 +77,10 @@ func startServer(_ *cobra.Command, _ []string) error {
 
 	evt.Bus().Publish(evt.ApplicationStarted, util.Version, util.BuildTime)
 	<-done
+
 	return terminationErr
 }
+
 
 func printBanner() {
 	log.Log().Info("_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/")
