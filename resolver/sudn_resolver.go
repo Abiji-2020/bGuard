@@ -5,8 +5,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/0xERR0R/blocky/config"
-	"github.com/0xERR0R/blocky/model"
+	"github.com/Abiji-2020/bGuard/config"
+	"github.com/Abiji-2020/bGuard/model"
 	"github.com/miekg/dns"
 )
 

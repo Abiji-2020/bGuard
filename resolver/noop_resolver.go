@@ -3,7 +3,7 @@ package resolver
 import (
 	"context"
 
-	"github.com/0xERR0R/blocky/model"
+	"github.com/Abiji-2020/bGuard/model"
 	"github.com/sirupsen/logrus"
 )
 

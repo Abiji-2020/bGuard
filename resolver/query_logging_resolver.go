@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/0xERR0R/blocky/config"
-	"github.com/0xERR0R/blocky/log"
-	"github.com/0xERR0R/blocky/model"
-	"github.com/0xERR0R/blocky/querylog"
-	"github.com/0xERR0R/blocky/util"
+	"github.com/Abiji-2020/bGuard/config"
+	"github.com/Abiji-2020/bGuard/log"
+	"github.com/Abiji-2020/bGuard/model"
+	"github.com/Abiji-2020/bGuard/querylog"
+	"github.com/Abiji-2020/bGuard/util"
 	"github.com/avast/retry-go/v4"
 	"github.com/miekg/dns"
 )
