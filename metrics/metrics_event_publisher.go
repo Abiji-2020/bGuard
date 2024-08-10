@@ -30,7 +30,7 @@ func registerApplicationEventListeners() {
 func versionNumberGauge() *prometheus.GaugeVec {
 	denylistCnt := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "blocky_build_info",
+			Name: "bGuard_build_info",
 			Help: "Version number and build info",
 		}, []string{"version", "build_time"},
 	)
@@ -75,7 +75,7 @@ func registerBlockingEventListeners() {
 
 func enabledGauge() prometheus.Gauge {
 	enabledGauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "blocky_blocking_enabled",
+		Name: "bGuard_blocking_enabled",
 		Help: "Blocking status",
 	})
 	enabledGauge.Set(1)
@@ -86,7 +86,7 @@ func enabledGauge() prometheus.Gauge {
 func denylistGauge() *prometheus.GaugeVec {
 	denylistCnt := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "blocky_denylist_cache",
+			Name: "bGuard_denylist_cache",
 			Help: "Number of entries in the denylist cache",
 		}, []string{"group"},
 	)
@@ -97,7 +97,7 @@ func denylistGauge() *prometheus.GaugeVec {
 func allowlistGauge() *prometheus.GaugeVec {
 	allowlistCnt := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "blocky_allowlist_cache",
+			Name: "bGuard_allowlist_cache",
 			Help: "Number of entries in the allowlist cache",
 		}, []string{"group"},
 	)
@@ -108,7 +108,7 @@ func allowlistGauge() *prometheus.GaugeVec {
 func lastListGroupRefresh() prometheus.Gauge {
 	return prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "blocky_last_list_group_refresh",
+			Name: "bGuard_last_list_group_refresh",
 			Help: "Timestamp of last list refresh",
 		},
 	)
@@ -162,7 +162,7 @@ func registerCachingEventListeners() {
 
 func failedDownloadCount() prometheus.Counter {
 	return prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blocky_failed_download_count",
+		Name: "bGuard_failed_download_count",
 		Help: "Failed download counter",
 	})
 }
@@ -170,7 +170,7 @@ func failedDownloadCount() prometheus.Counter {
 func cacheHitCount() prometheus.Counter {
 	return prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "blocky_cache_hit_count",
+			Name: "bGuard_cache_hit_count",
 			Help: "Cache hit counter",
 		},
 	)
@@ -179,7 +179,7 @@ func cacheHitCount() prometheus.Counter {
 func cacheMissCount() prometheus.Counter {
 	return prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "blocky_cache_miss_count",
+			Name: "bGuard_cache_miss_count",
 			Help: "Cache miss counter",
 		},
 	)
@@ -188,7 +188,7 @@ func cacheMissCount() prometheus.Counter {
 func domainPrefetchCount() prometheus.Counter {
 	return prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "blocky_prefetch_count",
+			Name: "bGuard_prefetch_count",
 			Help: "Prefetch counter",
 		},
 	)
@@ -197,7 +197,7 @@ func domainPrefetchCount() prometheus.Counter {
 func domainPrefetchHitCount() prometheus.Counter {
 	return prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "blocky_prefetch_hit_count",
+			Name: "bGuard_prefetch_hit_count",
 			Help: "Prefetch hit counter",
 		},
 	)
@@ -206,7 +206,7 @@ func domainPrefetchHitCount() prometheus.Counter {
 func cacheEntryCount() prometheus.Gauge {
 	return prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "blocky_cache_entry_count",
+			Name: "bGuard_cache_entry_count",
 			Help: "Number of entries in cache",
 		},
 	)
@@ -215,7 +215,7 @@ func cacheEntryCount() prometheus.Gauge {
 func prefetchDomainCacheCount() prometheus.Gauge {
 	return prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "blocky_prefetch_domain_name_cache_count",
+			Name: "bGuard_prefetch_domain_name_cache_count",
 			Help: "Number of entries in domain cache",
 		},
 	)

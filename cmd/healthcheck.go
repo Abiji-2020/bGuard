@@ -31,7 +31,7 @@ func healthcheck(cmd *cobra.Command, args []string) error {
 	c := new(dns.Client)
 	c.Net = "tcp"
 	m := new(dns.Msg)
-	m.SetQuestion("healthcheck.blocky.", dns.TypeA)
+	m.SetQuestion("healthcheck.bGuard.", dns.TypeA)
 
 	_, _, err := c.Exchange(m, net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", port)))
 

@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	SyncChannelName   = "blocky_sync"
-	CacheStorePrefix  = "blocky:cache:"
+	SyncChannelName   = "bGuard_sync"
+	CacheStorePrefix  = "bGuard:cache:"
 	chanCap           = 1000
 	cacheReason       = "EXTERNAL_CACHE"
 	defaultCacheTime  = 1 * time.Second
@@ -244,7 +244,7 @@ func (c *Client) processReceivedMessage(ctx context.Context, msg *redis.Message)
 		return
 	}
 
-	// message was sent from a different blocky instance
+	// message was sent from a different bGuard instance
 	if !bytes.Equal(rm.Client, c.id) {
 		switch rm.Type {
 		case messageTypeCache:
