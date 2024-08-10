@@ -209,7 +209,8 @@ type Config struct {
 }
 
 type Ports struct {
-	DNS ListenConfig `yaml:"dns"` default: "53"
+	DNS ListenConfig `yaml:"dns" default: "53"`
+
 	HTTP ListenConfig `yaml:"http"` 
 	HTTPS ListenConfig `yaml:"https"` 
 	TLS ListenConfig `yaml:"tls"`
@@ -251,5 +252,137 @@ type (
 
 
 type toEnable struct {
-	Enable bool `yaml:"enable"` default: false
+	Enable bool `yaml:"enable" default: false`
 }
+
+
+func (e *toEnable) isEnabled() bool {
+	return e.Enable
+}
+
+func (c *toEnable) LogConfig(logger *logrus.Entry) {
+	logger.Infof("Enabled")
+}
+
+type Init struct {
+	Strategy InitStrategy `yaml:"strategy" default:"blocking"`
+}
+
+func (c *Init) LogConfig(logger *logrus.Entry) {
+	logger.Debugf("Strategy =  %s", c.Strategy)
+}
+
+type SourceLoading struct{
+	Init `yaml:",inline"`
+
+	Concurrency uint `yaml:"concurrency" default:"4"`
+	MaxErrorsPerSource int `yaml:"maxErrorsPerSource" default:"5"`
+	RefreshPeriod Duration `yaml:"refreshPeriod" default:"3h"`
+	Downloads Downloader `yaml:"downloads"`
+}
+
+func (c *SourceLoading) LogConfig(logger *logrus.Entry){
+	c.Init.LogConfig(logger)
+	logger.Infof("Concurrency = %d", c.Concurrency)
+	logger.Debugf("Max errors per source = %d", c.MaxErrorsPerSource)
+
+	if c.RefreshPeriod.IsAboveZero(){
+		logger.Infof("Refresh  = every %s", c.RefreshPeriod)
+	} else {
+		logger.Infof("Refresh = disabled")
+	}
+
+	logger.Info("Downloads:")
+	log.WithIndent(logger, " ", c.Downloads.LogConfig)
+
+}
+
+func (c *SourceLoading) StartPeriodicRefresh(ctx context.Context, refresh func(context.Context) error, logErr func(error),) error{
+	err := c.Strategy.Do(ctx, refresh, logErr)
+
+	if err != nil {
+		return err
+	}
+
+	if c.RefreshPeriod > 0 {
+		go c.periodically(ctx, refresh, logErr)
+	}
+	
+
+	return nil
+}
+
+
+func (c *SourceLoading) periodically( ctx context.Context, refresh func(context.Context) error, logErr func(error),){
+	refresh = recoverToError(refresh, func(panicVal any) error{
+		return fmt.Errorf("panic during periodic refresh: %v", panicVal)
+	}
+
+	ticker := time.NewTicker(c.RefreshPeriod.ToDuration())
+
+	defer ticker.Stop()
+
+	for {
+		select {
+			case <-ticker.C:
+				err := refresh(ctx)
+				if err != nil {
+					logErr(err)
+				}
+			case <-ctx.Done():
+				return
+
+		}
+	}
+}
+
+
+func recoverToError(do func(context.Context) error, onPanic func(any) error) func(context.Context) error {
+	return func(ctx context.Context) error {
+		defer func(){
+			if val:= recover(); val != nil {
+				rerr = onPanic(val)
+			}
+		}()
+
+		return do(ctx)
+	}
+}
+
+type Downloader struct {
+	Timeout Duration `yaml:"timeout" default:"5s"`
+	Attempts uint `yaml:"attempts" default:"3"`
+	Cooldown Duration `yaml:"cooldown" default:"500ms"`
+}
+
+
+func (d *Downloader) LogConfig(logger *logrus.Entry){
+	logger.Infof("Timeout = %s", d.Timeout)
+	logger.Infof("Attempts = %d", d.Attempts)
+	logger.Infof("Cooldown = %s", d.Cooldown)
+}
+
+func WithDefaults[T any]()(T, error){
+	var cfg T 
+	if err:= defaults.Set(&cfg); err!= nil{
+		reurn cfg, fmt.Errorf("can't apply %T defaults: %w", cfg, err)
+	}
+
+	return cfg, nil
+}
+
+func mustDefault[T any]() T {
+	cfg, err := WithDefaults[T]()
+	if err != nil {
+		util.FatalOnError("broken defaults", err)
+	}
+
+	return cfg
+}
+
+func LoadConfig(path string,mandatory bool)(rCfg *Config, rerr error){
+	logger := logrus.NewEntry(log.Log())
+
+	return loadConfig(logger, path, mandatory)
+}
+
