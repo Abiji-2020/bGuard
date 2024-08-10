@@ -5,6 +5,7 @@ go 1.22.5
 require github.com/spf13/cobra v1.8.1 // direct
 
 require (
+	github.com/ThinkChaos/parcour v0.0.0-20230710171753-fbf917c9eaef // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef // indirect
 	github.com/avast/retry-go/v4 v4.6.0 // indirect
