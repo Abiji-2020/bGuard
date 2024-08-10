@@ -18,8 +18,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	. "github.com/Abiji-2020/bGuard/config/migration"
-	"github.com/Abiji-2020/bGuard/log"
-	"github.com/Abiji-2020/bGuard/util"
+//	"github.com/Abiji-2020/bGuard/log"
+//	"github.com/Abiji-2020/bGuard/util"
 )
 
 const (

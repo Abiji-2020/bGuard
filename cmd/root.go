@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/Abiji-2020/bGuard/config"
-	"github.com/Abiji-2020/bGuard/log"
+//	"github.com/Abiji-2020/bGuard/log"
 	"github.com/spf13/cobra"
 )
 
