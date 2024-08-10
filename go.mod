@@ -10,6 +10,7 @@ require (
 	github.com/go-chi/chi/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.5.0 // indirect
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b // indirect
+	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/miekg/dns v1.1.61 // indirect
 	github.com/oapi-codegen/runtime v1.1.1 // indirect

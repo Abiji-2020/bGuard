@@ -26,7 +26,7 @@ type ApiQueryRequest struct {
 
 // ApiQueryResult defines model for api.QueryResult.
 type ApiQueryResult struct {
-	// Reason blocky reason for resolution
+	// Reason bGuard reason for resolution
 	Reason string `json:"reason"`
 
 	// Response actual DNS response
