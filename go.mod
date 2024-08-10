@@ -6,6 +6,7 @@ require github.com/spf13/cobra v1.8.1 // direct
 
 require (
 	github.com/creasty/defaults v1.7.0 // indirect
+	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/miekg/dns v1.1.61 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect

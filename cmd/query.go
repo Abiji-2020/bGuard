@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	//"github.com/Abiji-2020/bGuard/api"
-	//"github.com/Abiji-2020/bGuard/log"
+	"github.com/Abiji-2020/bGuard/api"
+	"github.com/Abiji-2020/bGuard/log"
 	"github.com/miekg/dns"
 	"github.com/spf13/cobra"
 )
